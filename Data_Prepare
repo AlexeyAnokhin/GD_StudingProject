@@ -1,0 +1,45 @@
+with currency_rates_correct_date as -- меняет формат даты в currency_rates(данные о курсе доллара)
+(
+select c.date::date,
+       c.usd_to_rub
+from gd1.currency_rates c
+),
+
+mrkt_costs_corrected as -- приведём к единому регистру source(utm-метка) в marketing_costs(данные о затратах на маркетинговые кампании)
+(
+select m.campaign,
+       m.costs_rub,
+       m.date cohort_date,
+       m.medium,
+       lower(m.source) source
+from gd1.marketing_costs m
+),
+
+transactions_rub as -- определим сумму по транзакциям до и после вычета скидок в рублях в transactions(данные по транзакциям от пользователей)
+(
+select t.id,
+       t.created_at,
+       t.uuid,
+       (t.subtotal_cents*c.usd_to_rub)/100 subtotal_rub,
+       (t.total_cents*c.usd_to_rub)/100 total_rub
+from gd1.transactions t
+  left join currency_rates_correct_date c on t.created_at = c.date
+),
+
+transactions_with_acq_info as -- не доделал 
+(
+select tt.id,
+       tt.created_at transaction_date,
+       tt.subtotal_rub,
+       tt.subtotal_rub - tt.total_rub discount,
+       s.start_at first_transaction_date,
+       s.source,
+       s.medium,
+       s.campaign
+from transactions_rub tt
+  left join gd1.sessions_acquisition s on tt.uuid = s.uuid
+where tt.created_at - s.start_at >= 30
+)
+
+select *
+from transactions_with_acq_info
