@@ -23,7 +23,7 @@ select t.id,
        (t.subtotal_cents*c.usd_to_rub)/100 subtotal_rub,
        (t.total_cents*c.usd_to_rub)/100 total_rub
 from gd1.transactions t
-  left join currency_rates_correct_date c on t.created_at = c.date
+  join currency_rates_correct_date c on t.created_at = c.date
 ),
 
 transactions_with_acq_info as -- Затраты на рекламную кампанию, по которой пришли клиенты из данной когорты в этот день
@@ -37,21 +37,28 @@ select tt.id,
        s.medium,
        s.campaign
 from transactions_rub tt
-  left join gd1.sessions_acquisition s on tt.uuid = s.uuid
+  join gd1.sessions_acquisition s on tt.uuid = s.uuid
 where tt.created_at - s.start_at <= 30
 ),
 
-data_per_cohort as --Общая сумму затрат на скидки в течение 30-ти дней с начала жизни когорты на сервисе
+data_per_cohort as -- Общая сумма затрат на скидки в течении 30 дней с начала жизни когорты на сервисе
 (
-select ti.transaction_date cohort_date,
-       ti.source,
-       ti.medium,
-       ti.campaign,
-       sum(ti.discount) discounts
-from transactions_with_acq_info ti
-group by 1,2,3,4
+select twai.first_transaction_date cohort_date,
+       twai.source,
+       twai.medium,
+       twai.campaign,
+       sum(twai.discount) discounts
+from transactions_with_acq_info twai
+   join mrkt_costs_corrected mcc on twai.first_transaction_date=mcc.cohort_date
+    and twai.source=mcc.source
+     and twai.medium=mcc.medium
+      and twai.campaign=mcc.campaign
+group by
+1, 2, 3, 4
+order by
+1
 )
 
-select round(sum(dc.discounts))
-from data_per_cohort dc
-where dc.cohort_date = '2019-09-05' and dc.source = 'google' and dc.campaign = 'rus_search_gen-vlozhenye-zaprosy-discount-10-night'
+select round(dpc.discounts)
+from data_per_cohort dpc
+where dpc.cohort_date='2019-09-05' and dpc.campaign ='rus_search_gen-vlozhenye-zaprosy-discount-10-night'
