@@ -47,7 +47,8 @@ select twai.first_transaction_date cohort_date,
        twai.source,
        twai.medium,
        twai.campaign,
-       sum(twai.discount) discounts
+       sum(twai.discount) discounts,
+       sum(twai.subtotal_rub) income
 from transactions_with_acq_info twai
    join mrkt_costs_corrected mcc on twai.first_transaction_date=mcc.cohort_date
     and twai.source=mcc.source
@@ -57,8 +58,23 @@ group by
 1, 2, 3, 4
 order by
 1
+),
+
+ltv_30_days as 
+(
+select mcc.cohort_date,
+       mcc.source,
+       mcc.medium,
+       mcc.campaign,
+       dpc.income - dpc.discounts - mcc.costs_rub ltv
+from mrkt_costs_corrected mcc
+   left join data_per_cohort dpc on mcc.cohort_date=dpc.cohort_date
+    and mcc.source=dpc.source
+     and mcc.medium=dpc.medium
+      and mcc.campaign=dpc.campaign
+order by
+1
 )
 
-select round(dpc.discounts)
-from data_per_cohort dpc
-where dpc.cohort_date='2019-09-05' and dpc.campaign ='rus_search_gen-vlozhenye-zaprosy-discount-10-night'
+select *
+from ltv_30_days ld
