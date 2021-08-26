@@ -60,7 +60,7 @@ order by
 1
 ),
 
-ltv_30_days as 
+ltv_30_days as -- рассчёт LiveTimeValue (прибыль, которую приносит пользователь за всё время работы)
 (
 select mcc.cohort_date,
        mcc.source,
